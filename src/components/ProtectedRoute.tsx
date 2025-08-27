@@ -28,6 +28,12 @@ export function ProtectedRoute({ children, requiredRole }: ProtectedRouteProps) 
     return <Navigate to="/login" replace />;
   }
 
+  // If user is authenticated but no userData, allow access with fallback role assumption
+  if (currentUser && !userData) {
+    console.log('User authenticated but no userData - allowing access');
+    return <>{children}</>;
+  }
+
   if (requiredRole && userData?.role !== requiredRole) {
     return <Navigate to="/" replace />;
   }
