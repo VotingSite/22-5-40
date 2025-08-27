@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { AnimatedCard } from '@/components/ui/AnimatedCard';
 import { Badge } from '@/components/ui/badge';
 import { isGeminiConfigured } from '@/lib/gemini';
 import { Wand2, CheckCircle, XCircle, AlertTriangle } from 'lucide-react';
