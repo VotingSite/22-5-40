@@ -1181,17 +1181,25 @@ export default function QuestionBank() {
             <DialogTitle className="flex items-center">
               <Wand2 className="w-5 h-5 mr-2 text-primary" />
               AI Question Generator
+              {isGeminiConfigured() && (
+                <Badge variant="outline" className="ml-2 text-xs bg-success/20 text-success">
+                  Gemini AI Ready
+                </Badge>
+              )}
             </DialogTitle>
           </DialogHeader>
 
           <div className="space-y-4 mt-6">
             <div className="space-y-2">
-              <Label>Topic/Subject</Label>
+              <Label>Topic/Subject *</Label>
               <Input
                 value={aiFormData.topic}
                 onChange={(e) => setAiFormData(prev => ({ ...prev, topic: e.target.value }))}
-                placeholder="e.g., logical reasoning, basic math"
+                placeholder="e.g., logical reasoning, basic math, pattern recognition"
               />
+              <p className="text-xs text-muted-foreground">
+                Be specific about the topic for better question quality
+              </p>
             </div>
 
             <div className="grid grid-cols-2 gap-4">
@@ -1260,9 +1268,9 @@ export default function QuestionBank() {
               <Button variant="outline" onClick={() => setShowAIDialog(false)}>
                 Cancel
               </Button>
-              <Button 
-                onClick={handleAIGeneration} 
-                disabled={aiLoading || !aiFormData.topic}
+              <Button
+                onClick={handleAIGeneration}
+                disabled={aiLoading || !aiFormData.topic.trim() || !isGeminiConfigured()}
                 className="bg-gradient-primary"
               >
                 {aiLoading ? (
@@ -1270,8 +1278,13 @@ export default function QuestionBank() {
                 ) : (
                   <Wand2 className="w-4 h-4 mr-2" />
                 )}
-                Generate Questions
+                {aiLoading ? 'Generating...' : 'Generate Questions'}
               </Button>
+              {!isGeminiConfigured() && (
+                <p className="text-xs text-warning mt-2">
+                  ⚠️ Gemini API not configured. Contact admin to set up API key.
+                </p>
+              )}
             </div>
           </div>
         </DialogContent>
