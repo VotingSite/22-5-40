@@ -19,22 +19,25 @@ export default function Login() {
   const { toast } = useToast();
   const navigate = useNavigate();
 
-  // Redirect authenticated users to their dashboard
+  // Redirect authenticated users to their dashboard (only if they came to login page directly)
   useEffect(() => {
     if (currentUser && userData) {
-      if (userData.role === 'student') {
-        navigate('/student', { replace: true });
-      } else if (userData.role === 'admin') {
-        navigate('/admin', { replace: true });
+      // Check if user came from a protected route
+      const previousPath = sessionStorage.getItem('previousPath');
+      if (previousPath && (previousPath.startsWith('/admin') || previousPath.startsWith('/student'))) {
+        // Redirect back to where they were
+        navigate(previousPath, { replace: true });
+        sessionStorage.removeItem('previousPath');
+      } else {
+        // Default redirect based on role
+        if (userData.role === 'student') {
+          navigate('/student', { replace: true });
+        } else if (userData.role === 'admin') {
+          navigate('/admin', { replace: true });
+        }
       }
-    } else if (currentUser && !userData && !loading) {
-      // Fallback: if user is authenticated but userData failed to load, redirect to admin
-      console.log('User authenticated but userData not loaded - redirecting to admin dashboard');
-      setTimeout(() => {
-        navigate('/admin', { replace: true });
-      }, 2000); // Give it 2 seconds for userData to potentially load
     }
-  }, [currentUser, userData, loading, navigate]);
+  }, [currentUser, userData, navigate]);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -56,13 +59,7 @@ export default function Login() {
         description: "Logged in successfully!",
       });
 
-      // Add a fallback redirect in case the automatic redirect fails
-      setTimeout(() => {
-        if (window.location.pathname === '/login') {
-          console.log('Fallback redirect triggered');
-          navigate('/admin', { replace: true });
-        }
-      }, 3000); // Wait 3 seconds for normal redirect, then fallback
+      // Login successful - redirect will be handled by useEffect
     } catch (error: any) {
       let errorMessage = "Failed to log in";
 
