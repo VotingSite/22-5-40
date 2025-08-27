@@ -109,7 +109,8 @@ export default function QuestionBank() {
   const [showAIDialog, setShowAIDialog] = useState(false);
   const [loading, setLoading] = useState(false);
   const [aiLoading, setAiLoading] = useState(false);
-  const [selectedQuestions, setSelectedQuestions] = useState<string[]>([]);
+  const [selectedQuestions, setSelectedQuestions] = useState<string[]>([]); // For question bank creation
+  const [bulkSelectedQuestions, setBulkSelectedQuestions] = useState<string[]>([]); // For bulk operations
   const { toast } = useToast();
 
   // Form state for creating/editing questions
@@ -312,6 +313,59 @@ export default function QuestionBank() {
         variant: "destructive"
       });
     }
+  };
+
+  const handleBulkDeleteQuestions = async () => {
+    if (bulkSelectedQuestions.length === 0) {
+      toast({
+        title: "Error",
+        description: "No questions selected for deletion",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    try {
+      setLoading(true);
+      // Delete all selected questions
+      await Promise.all(
+        bulkSelectedQuestions.map(questionId =>
+          deleteDoc(doc(db, 'questions', questionId))
+        )
+      );
+
+      toast({
+        title: "Success",
+        description: `${bulkSelectedQuestions.length} questions deleted successfully`
+      });
+
+      setBulkSelectedQuestions([]);
+      fetchQuestions();
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to delete some questions",
+        variant: "destructive"
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleSelectAllQuestions = () => {
+    if (bulkSelectedQuestions.length === filteredQuestions.length) {
+      setBulkSelectedQuestions([]);
+    } else {
+      setBulkSelectedQuestions(filteredQuestions.map(q => q.id));
+    }
+  };
+
+  const handleSelectQuestion = (questionId: string) => {
+    setBulkSelectedQuestions(prev =>
+      prev.includes(questionId)
+        ? prev.filter(id => id !== questionId)
+        : [...prev, questionId]
+    );
   };
 
   const handleDeleteQuestionBank = async (bankId: string) => {
@@ -564,6 +618,13 @@ export default function QuestionBank() {
                 <Table>
                   <TableHeader>
                     <TableRow className="border-glass-border">
+                      <TableHead className="w-12">
+                        <Checkbox
+                          checked={bulkSelectedQuestions.length === filteredQuestions.length && filteredQuestions.length > 0}
+                          onCheckedChange={handleSelectAllQuestions}
+                          aria-label="Select all questions"
+                        />
+                      </TableHead>
                       <TableHead>Question</TableHead>
                       <TableHead>Type</TableHead>
                       <TableHead>Category</TableHead>
@@ -582,6 +643,13 @@ export default function QuestionBank() {
                         transition={{ delay: 0.7 + index * 0.05 }}
                         className="border-glass-border hover:bg-background-secondary transition-colors"
                       >
+                        <TableCell>
+                          <Checkbox
+                            checked={bulkSelectedQuestions.includes(question.id)}
+                            onCheckedChange={() => handleSelectQuestion(question.id)}
+                            aria-label={`Select question ${question.id}`}
+                          />
+                        </TableCell>
                         <TableCell>
                           <div className="max-w-md">
                             <p className="font-medium text-foreground truncate">{question.question}</p>
