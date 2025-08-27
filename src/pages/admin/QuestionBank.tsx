@@ -473,7 +473,7 @@ export default function QuestionBank() {
             {[
               { title: "Total Questions", value: questions.length.toString(), change: `${questions.filter(q => q.createdAt > new Date(Date.now() - 7*24*60*60*1000)).length} this week`, icon: Database, gradient: "from-primary to-secondary" },
               { title: "Categories", value: new Set(questions.map(q => q.category)).size.toString(), change: "Active categories", icon: Tag, gradient: "from-secondary to-accent" },
-              { title: "AI Generated", value: questions.filter(q => q.createdBy === 'AI Assistant').length.toString(), change: "Auto-created", icon: Wand2, gradient: "from-accent to-primary" },
+              { title: "AI Generated", value: questions.filter(q => q.createdBy === 'AI Assistant' || q.createdBy === 'AI Assistant (Gemini)').length.toString(), change: "Auto-created", icon: Wand2, gradient: "from-accent to-primary" },
               { title: "Easy Questions", value: questions.filter(q => q.difficulty === 'Easy').length.toString(), change: "Beginner level", icon: BookOpen, gradient: "from-primary to-accent" }
             ].map((stat, index) => (
               <AnimatedCard key={stat.title} delay={index * 0.1} glow>
