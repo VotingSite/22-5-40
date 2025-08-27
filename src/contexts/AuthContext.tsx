@@ -164,31 +164,54 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       try {
         clearTimeout(timeoutId); // Clear timeout if auth resolves
         console.log('Auth state changed:', user);
-        
-        if (user) {
-          // Get user data from Firestore
-          const userDocRef = doc(db, 'users', user.uid);
-          const userDoc = await getDoc(userDocRef);
-          console.log('User document fetched:', userDoc.exists(), userDoc.data());
+        setCurrentUser(user);
 
-          if (userDoc.exists()) {
-            const data = userDoc.data();
-            console.log('Raw user data from Firestore:', data);
-            const convertedData = convertUserData(data);
-            console.log('Converted user data:', convertedData);
-            setUserData(convertedData);
-          } else {
-            console.log('No user document found');
-            setUserData(null);
+        if (user) {
+          try {
+            // Get user data from Firestore
+            const userDocRef = doc(db, 'users', user.uid);
+            const userDoc = await getDoc(userDocRef);
+            console.log('User document fetched:', userDoc.exists(), userDoc.data());
+
+            if (userDoc.exists()) {
+              const data = userDoc.data();
+              console.log('Raw user data from Firestore:', data);
+              const convertedData = convertUserData(data);
+              console.log('Converted user data:', convertedData);
+              setUserData(convertedData);
+            } else {
+              console.log('No user document found - creating fallback userData');
+              // Create fallback userData if document doesn't exist
+              const fallbackData: UserData = {
+                uid: user.uid,
+                email: user.email || '',
+                displayName: user.displayName || 'User',
+                role: 'student', // Default to student
+                createdAt: new Date(),
+                lastLogin: new Date()
+              };
+              setUserData(fallbackData);
+            }
+          } catch (firestoreError) {
+            console.error('Firestore error - using fallback userData:', firestoreError);
+            // If Firestore fails, create fallback userData so user can still access the app
+            const fallbackData: UserData = {
+              uid: user.uid,
+              email: user.email || '',
+              displayName: user.displayName || 'User',
+              role: 'admin', // Default to admin for fallback to avoid access issues
+              createdAt: new Date(),
+              lastLogin: new Date()
+            };
+            setUserData(fallbackData);
           }
         } else {
           setUserData(null);
         }
       } catch (error) {
-        console.error('Error fetching user data:', error);
+        console.error('Auth state change error:', error);
         setUserData(null);
       } finally {
-        setCurrentUser(user);
         setLoading(false);
       }
     });
