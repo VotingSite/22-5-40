@@ -58,13 +58,22 @@ function AuthRoutes() {
 
   // If user is authenticated but no userData yet, show loading with bypass
   if (currentUser && !userData) {
+    // Auto-redirect to admin after 5 seconds if userData doesn't load
+    setTimeout(() => {
+      if (currentUser && !userData) {
+        console.log('Auto-redirecting to admin due to userData loading timeout');
+        window.location.href = '/admin';
+      }
+    }, 5000);
+
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
         <div className="text-center">
           <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
           <p className="text-muted-foreground">Setting up your account...</p>
-          <button 
-            onClick={() => window.location.href = '/admin'} 
+          <p className="text-xs text-muted-foreground mt-2">Auto-redirecting in 5 seconds...</p>
+          <button
+            onClick={() => window.location.href = '/admin'}
             className="mt-4 px-4 py-2 bg-primary text-primary-foreground rounded hover:bg-primary/90"
           >
             Skip Loading (Go to Admin)
