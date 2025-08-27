@@ -34,7 +34,7 @@ export function DashboardLayout({ children, userType }: DashboardLayoutProps) {
 
   return (
     <SidebarProvider>
-      <div className="min-h-screen flex w-full bg-background">
+      <div className="min-h-screen flex w-full bg-background min-w-[320px]">
         <AppSidebar userType={userType} />
         
         <main className="flex-1 flex flex-col overflow-hidden">
@@ -95,7 +95,7 @@ export function DashboardLayout({ children, userType }: DashboardLayoutProps) {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.3, duration: 0.4 }}
-            className="flex-1 p-6 overflow-auto"
+            className="flex-1 p-4 md:p-6 overflow-auto"
           >
             {children}
           </motion.div>

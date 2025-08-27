@@ -2,10 +2,23 @@ import { useState, useEffect } from 'react';
 import { motion } from "framer-motion";
 import { Users, FileText, TrendingUp, Clock, Activity, Zap, Brain, Target } from "lucide-react";
 import { AnimatedCard } from "@/components/ui/AnimatedCard";
-import { collection, getDocs, query, where, orderBy, limit } from 'firebase/firestore';
+import { collection, getDocs, query, where, orderBy, limit, Timestamp } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
+import { useNavigate } from 'react-router-dom';
+
+interface TestAttempt {
+  id: string;
+  status: string;
+  score: number;
+  completedAt: Date;
+  createdAt: Timestamp;
+  userName: string;
+  testTitle: string;
+  userId: string;
+}
 
 export default function AdminDashboard() {
+  const navigate = useNavigate();
   const [dashboardData, setDashboardData] = useState({
     totalStudents: 0,
     testsCreated: 0,
@@ -34,11 +47,11 @@ export default function AdminDashboard() {
 
       // Fetch test attempts
       const attemptsSnapshot = await getDocs(collection(db, 'testAttempts'));
-      const allAttempts = attemptsSnapshot.docs.map(doc => ({
+      const allAttempts: TestAttempt[] = attemptsSnapshot.docs.map(doc => ({
         id: doc.id,
         ...doc.data(),
         completedAt: doc.data().completedAt?.toDate()
-      }));
+      } as TestAttempt));
 
       // Calculate average score
       const completedAttempts = allAttempts.filter(a => a.status === 'completed' && a.score !== undefined);
@@ -316,7 +329,7 @@ export default function AdminDashboard() {
       </div>
 
       {/* System Stats & Quick Actions */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 md:gap-8">
         {/* System Health */}
         <AnimatedCard delay={0.8}>
           <h2 className="text-xl font-bold text-foreground mb-6 flex items-center">
@@ -324,7 +337,7 @@ export default function AdminDashboard() {
             System Overview
           </h2>
           
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-2 gap-3 md:gap-4">
             {systemStats.map((stat, index) => (
               <motion.div
                 key={stat.label}
@@ -354,19 +367,40 @@ export default function AdminDashboard() {
           
           <div className="space-y-4">
             {[
-              { title: "Create New Test", desc: "Design a new assessment", gradient: "from-primary to-secondary" },
-              { title: "Generate Questions", desc: "Use AI to create questions", gradient: "from-secondary to-accent" },
-              { title: "View Reports", desc: "Export analytics data", gradient: "from-accent to-primary" },
-              { title: "Manage Students", desc: "Add or modify user accounts", gradient: "from-primary to-accent" }
+              { 
+                title: "Create New Test", 
+                desc: "Design a new assessment", 
+                gradient: "from-primary to-secondary",
+                action: () => navigate('/admin/tests')
+              },
+              { 
+                title: "Generate Questions", 
+                desc: "Use AI to create questions", 
+                gradient: "from-secondary to-accent",
+                action: () => navigate('/admin/questions')
+              },
+              { 
+                title: "View Reports", 
+                desc: "Export analytics data", 
+                gradient: "from-accent to-primary",
+                action: () => navigate('/admin/analytics')
+              },
+              { 
+                title: "Manage Users", 
+                desc: "Add or modify user accounts", 
+                gradient: "from-primary to-accent",
+                action: () => navigate('/admin/students')
+              }
             ].map((action, index) => (
               <motion.button
                 key={action.title}
+                onClick={action.action}
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 1.0 + index * 0.1 }}
                 whileHover={{ scale: 1.02, x: 4 }}
                 whileTap={{ scale: 0.98 }}
-                className={`w-full p-4 rounded-xl bg-gradient-to-r ${action.gradient} hover:shadow-glow transition-all duration-300 text-left group`}
+                className={`w-full p-4 rounded-xl bg-gradient-to-r ${action.gradient} hover:shadow-glow transition-all duration-300 text-left group cursor-pointer`}
               >
                 <h3 className="font-semibold text-white mb-1">{action.title}</h3>
                 <p className="text-white/80 text-sm group-hover:text-white transition-colors">

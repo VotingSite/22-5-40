@@ -50,8 +50,10 @@ import {
 } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
+import { useAuth } from '@/contexts/AuthContext';
 import { collection, getDocs, doc, updateDoc, deleteDoc, addDoc, query, where } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
+import { DebugInfo } from '@/components/DebugInfo';
 
 interface Student {
   id: string;
@@ -79,22 +81,49 @@ export default function StudentManagement() {
   const [statusFilter, setStatusFilter] = useState('all');
   const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
   const [showCreateDialog, setShowCreateDialog] = useState(false);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const { toast } = useToast();
+  const { userData } = useAuth();
   const mounted = useRef(true);
+
+  // Ensure user is admin
+  if (!userData || userData.role !== 'admin') {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <div className="text-center">
+          <h1 className="text-2xl font-bold text-foreground mb-2">Access Denied</h1>
+          <p className="text-muted-foreground">You don't have permission to access this page.</p>
+        </div>
+      </div>
+    );
+  }
 
   // Form state for creating/editing students
   const [formData, setFormData] = useState({
     name: '',
     email: '',
+    role: 'student' as 'student' | 'admin',
     status: 'active' as Student['status']
   });
 
   useEffect(() => {
-    fetchStudents();
+    let retryTimeout: NodeJS.Timeout;
+    
+    const attemptFetch = () => {
+      fetchStudents().catch((error) => {
+        console.error('Failed to fetch students, retrying in 3 seconds:', error);
+        retryTimeout = setTimeout(attemptFetch, 3000);
+      });
+    };
+
+    attemptFetch();
+
     return () => {
       mounted.current = false;
+      if (retryTimeout) {
+        clearTimeout(retryTimeout);
+      }
     };
   }, []);
 
@@ -105,22 +134,42 @@ export default function StudentManagement() {
       setLoading(true);
       setError(null);
 
-      // Fetch users collection
-      const usersSnapshot = await getDocs(query(collection(db, 'users'), where('role', '==', 'student')));
+      // Add a small delay to prevent rapid re-renders
+      await new Promise(resolve => setTimeout(resolve, 100));
+
+      if (!mounted.current) return;
+
+      // Fetch users collection with timeout (all users, not just students)
+      const usersPromise = getDocs(collection(db, 'users'));
+      const usersSnapshot = await Promise.race([
+        usersPromise,
+        new Promise((_, reject) => setTimeout(() => reject(new Error('Users fetch timeout')), 10000))
+      ]) as any;
 
       if (!mounted.current) return;
 
       const usersData = usersSnapshot.docs.map(doc => {
+        const data = doc.data();
         return {
           id: doc.id,
-          ...doc.data(),
-          joinedDate: doc.data().createdAt?.toDate() || new Date(),
-          lastActive: doc.data().lastLogin?.toDate() || new Date()
+          name: data.displayName || data.name || 'Unknown User',
+          email: data.email || 'no-email@example.com',
+          role: data.role || 'student',
+          avatar: data.photoURL || data.avatar || '',
+          status: data.status || 'active',
+          joinedDate: data.createdAt?.toDate() || data.createdAt || new Date(),
+          lastActive: data.lastLogin?.toDate() || data.lastLogin || new Date()
         };
       });
 
-      // Get test attempts for calculating statistics
-      const attemptsSnapshot = await getDocs(collection(db, 'testAttempts'));
+      if (!mounted.current) return;
+
+      // Get test attempts for calculating statistics with timeout
+      const attemptsPromise = getDocs(collection(db, 'testAttempts'));
+      const attemptsSnapshot = await Promise.race([
+        attemptsPromise,
+        new Promise((_, reject) => setTimeout(() => reject(new Error('Attempts fetch timeout')), 10000))
+      ]) as any;
 
       if (!mounted.current) return;
 
@@ -128,35 +177,64 @@ export default function StudentManagement() {
 
       // Calculate statistics for each student
       const studentsWithStats = usersData.map(user => {
-        const userAttempts = attempts.filter(attempt => attempt.userId === user.id);
-        const completedAttempts = userAttempts.filter(attempt => attempt.status === 'completed' && attempt.score !== undefined);
+        try {
+          const userAttempts = attempts.filter(attempt => attempt.userId === user.id);
+          const completedAttempts = userAttempts.filter(attempt => attempt.status === 'completed' && attempt.score !== undefined);
 
-        const testsCompleted = completedAttempts.length;
-        const averageScore = testsCompleted > 0
-          ? Math.round(completedAttempts.reduce((sum, attempt) => sum + (attempt.score || 0), 0) / testsCompleted)
-          : 0;
+          const testsCompleted = completedAttempts.length;
+          const averageScore = testsCompleted > 0
+            ? Math.round(completedAttempts.reduce((sum, attempt) => sum + (attempt.score || 0), 0) / testsCompleted)
+            : 0;
 
-        // Calculate total time spent (simplified)
-        const totalMinutes = userAttempts.reduce((sum, attempt) => {
-          const duration = attempt.duration || 0;
-          return sum + (typeof duration === 'number' ? duration : 0);
-        }, 0);
+          // Calculate total time spent (simplified)
+          const totalMinutes = userAttempts.reduce((sum, attempt) => {
+            const duration = attempt.duration || 0;
+            return sum + (typeof duration === 'number' ? duration : 0);
+          }, 0);
 
-        const hours = Math.floor(totalMinutes / 60);
-        const minutes = totalMinutes % 60;
-        const totalTimeSpent = `${hours}h ${minutes}m`;
+          const hours = Math.floor(totalMinutes / 60);
+          const minutes = totalMinutes % 60;
+          const totalTimeSpent = `${hours}h ${minutes}m`;
 
-        return {
-          ...user,
-          testsCompleted,
-          averageScore,
-          totalTimeSpent,
-          status: user.status || 'active'
-        } as Student;
+          return {
+            ...user,
+            testsCompleted,
+            averageScore,
+            totalTimeSpent,
+            status: user.status || 'active',
+            name: user.name || 'Unknown User',
+            email: user.email || 'no-email@example.com'
+          } as Student;
+        } catch (error) {
+          console.error('Error processing student data:', error, user);
+          return {
+            ...user,
+            testsCompleted: 0,
+            averageScore: 0,
+            totalTimeSpent: '0h 0m',
+            status: user.status || 'active',
+            name: user.name || 'Unknown User',
+            email: user.email || 'no-email@example.com'
+          } as Student;
+        }
+      });
+
+      // Ensure we have valid data
+      if (!Array.isArray(studentsWithStats)) {
+        console.error('Invalid data structure received:', studentsWithStats);
+        throw new Error('Invalid data structure received from database');
+      }
+
+      // Validate each student object
+      studentsWithStats.forEach((student, index) => {
+        if (!student.name || !student.email) {
+          console.warn(`Student at index ${index} has missing required fields:`, student);
+        }
       });
 
       if (!mounted.current) return;
 
+      console.log('Students loaded successfully:', studentsWithStats.length);
       setStudents(studentsWithStats);
     } catch (error) {
       console.error('Error fetching students:', error);
@@ -170,6 +248,7 @@ export default function StudentManagement() {
       });
     } finally {
       if (mounted.current) {
+        console.log('Setting loading to false');
         setLoading(false);
       }
     }
@@ -186,30 +265,31 @@ export default function StudentManagement() {
         return;
       }
 
-      const studentData = {
+      const userData = {
+        displayName: formData.name,
         name: formData.name,
         email: formData.email,
-        role: 'student',
+        role: formData.role,
         status: formData.status,
         createdAt: new Date(),
         lastLogin: new Date()
       };
 
-      await addDoc(collection(db, 'users'), studentData);
+      await addDoc(collection(db, 'users'), userData);
       
       toast({
         title: "Success",
-        description: "Student created successfully"
+        description: `${formData.role === 'admin' ? 'Admin' : 'Student'} created successfully`
       });
 
       setShowCreateDialog(false);
       resetForm();
       fetchStudents();
     } catch (error) {
-      console.error('Error creating student:', error);
+      console.error('Error creating user:', error);
       toast({
         title: "Error",
-        description: "Failed to create student",
+        description: "Failed to create user",
         variant: "destructive"
       });
     }
@@ -259,6 +339,7 @@ export default function StudentManagement() {
     setFormData({
       name: '',
       email: '',
+      role: 'student',
       status: 'active'
     });
   };
@@ -293,8 +374,8 @@ export default function StudentManagement() {
   };
 
   const filteredStudents = students.filter(student => {
-    const matchesSearch = student.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         student.email.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesSearch = (student.name || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         (student.email || '').toLowerCase().includes(searchTerm.toLowerCase());
     const matchesStatus = statusFilter === 'all' || student.status === statusFilter;
     return matchesSearch && matchesStatus;
   });
@@ -326,14 +407,38 @@ export default function StudentManagement() {
         <AnimatedCard delay={0.2}>
           <div className="text-center py-20">
             <AlertTriangle className="w-12 h-12 text-danger mx-auto mb-4" />
-            <h3 className="text-lg font-medium text-foreground mb-2">Error Loading Students</h3>
-            <p className="text-muted-foreground mb-4">{error}</p>
-            <Button onClick={() => {
-              setError(null);
-              fetchStudents();
-            }}>
-              Try Again
-            </Button>
+                      <h3 className="text-lg font-medium text-foreground mb-2">Error Loading Users</h3>
+          <p className="text-muted-foreground mb-4">{error}</p>
+          <Button onClick={() => {
+            setError(null);
+            fetchStudents();
+          }}>
+            Try Again
+          </Button>
+          </div>
+        </AnimatedCard>
+      </div>
+    );
+  }
+
+  // Add loading state for initial load
+  if (loading && students.length === 0) {
+    return (
+      <div className="space-y-8">
+        <motion.div
+          initial={{ opacity: 0, y: -20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5 }}
+          className="text-center py-8"
+        >
+          <h1 className="text-4xl font-bold gradient-text mb-4">Student Management</h1>
+          <p className="text-muted-foreground text-lg">Manage and monitor student accounts</p>
+        </motion.div>
+
+        <AnimatedCard delay={0.2}>
+          <div className="text-center py-20">
+            <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+            <p className="text-muted-foreground">Loading students...</p>
           </div>
         </AnimatedCard>
       </div>
@@ -342,6 +447,7 @@ export default function StudentManagement() {
 
   return (
     <div className="space-y-8">
+      <DebugInfo componentName="StudentManagement" />
       {/* Header */}
       <motion.div
         initial={{ opacity: 0, y: -20 }}
@@ -349,16 +455,16 @@ export default function StudentManagement() {
         transition={{ duration: 0.5 }}
         className="text-center py-8"
       >
-        <h1 className="text-4xl font-bold gradient-text mb-4">Student Management</h1>
-        <p className="text-muted-foreground text-lg">Manage and monitor student accounts</p>
+        <h1 className="text-4xl font-bold gradient-text mb-4">User Management</h1>
+        <p className="text-muted-foreground text-lg">Manage and monitor user accounts</p>
       </motion.div>
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
         {[
-          { title: "Total Students", value: totalStudents.toString(), change: "Registered users", icon: Users, gradient: "from-primary to-secondary" },
-          { title: "Active Students", value: activeStudents.toString(), change: `${Math.round((activeStudents/totalStudents) * 100) || 0}% active`, icon: Trophy, gradient: "from-secondary to-accent" },
-          { title: "Avg. Tests Completed", value: avgTestsCompleted, change: "Per student", icon: BookOpen, gradient: "from-accent to-primary" },
+          { title: "Total Users", value: totalStudents.toString(), change: "Registered users", icon: Users, gradient: "from-primary to-secondary" },
+          { title: "Active Users", value: activeStudents.toString(), change: `${Math.round((activeStudents/totalStudents) * 100) || 0}% active`, icon: Trophy, gradient: "from-secondary to-accent" },
+          { title: "Avg. Tests Completed", value: avgTestsCompleted, change: "Per user", icon: BookOpen, gradient: "from-accent to-primary" },
           { title: "Avg. Score", value: `${avgScore}%`, change: "Overall performance", icon: Trophy, gradient: "from-primary to-accent" }
         ].map((stat, index) => (
           <AnimatedCard key={stat.title} delay={index * 0.1} glow>
@@ -386,7 +492,7 @@ export default function StudentManagement() {
             <div className="relative flex-1 max-w-md">
               <Search className="absolute left-3 top-3 w-4 h-4 text-muted-foreground" />
               <Input
-                placeholder="Search students..."
+                placeholder="Search users..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="pl-10"
@@ -456,18 +562,18 @@ export default function StudentManagement() {
                         <Avatar className="w-8 h-8">
                           <AvatarImage src={student.avatar || ''} />
                           <AvatarFallback className="bg-gradient-primary text-primary-foreground text-xs">
-                            {student.name.split(' ').map(n => n[0]).join('')}
+                            {(student.name || 'U').split(' ').map(n => n[0]).join('')}
                           </AvatarFallback>
                         </Avatar>
                         <div>
-                          <p className="font-medium text-foreground">{student.name}</p>
+                          <p className="font-medium text-foreground">{student.name || 'Unknown User'}</p>
                         </div>
                       </div>
                     </TableCell>
                     <TableCell>
                       <div className="flex items-center space-x-1">
                         <Mail className="w-3 h-3 text-muted-foreground" />
-                        <span className="text-sm text-muted-foreground">{student.email}</span>
+                        <span className="text-sm text-muted-foreground">{student.email || 'no-email@example.com'}</span>
                       </div>
                     </TableCell>
                     <TableCell>
@@ -538,13 +644,13 @@ export default function StudentManagement() {
                 <h3 className="text-lg font-medium text-foreground mb-2">No students found</h3>
                 <p className="text-muted-foreground mb-4">
                   {students.length === 0 
-                    ? "Start by adding your first student to the platform."
+                    ? "Start by adding your first user to the platform."
                     : "Try adjusting your search filters to find what you're looking for."
                   }
                 </p>
                 <Button onClick={() => setShowCreateDialog(true)}>
                   <Plus className="w-4 h-4 mr-2" />
-                  Add First Student
+                  Add First User
                 </Button>
               </div>
             )}
@@ -558,7 +664,7 @@ export default function StudentManagement() {
           <DialogHeader>
             <DialogTitle className="flex items-center">
               <UserPlus className="w-5 h-5 mr-2 text-primary" />
-              Add New Student
+              Add New User
             </DialogTitle>
           </DialogHeader>
 
@@ -568,7 +674,7 @@ export default function StudentManagement() {
               <Input
                 value={formData.name}
                 onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
-                placeholder="Enter student's full name"
+                placeholder="Enter user's full name"
               />
             </div>
 
@@ -578,8 +684,21 @@ export default function StudentManagement() {
                 type="email"
                 value={formData.email}
                 onChange={(e) => setFormData(prev => ({ ...prev, email: e.target.value }))}
-                placeholder="Enter student's email"
+                placeholder="Enter user's email"
               />
+            </div>
+
+            <div className="space-y-2">
+              <Label>Role *</Label>
+              <Select value={formData.role} onValueChange={(value) => setFormData(prev => ({ ...prev, role: value as 'student' | 'admin' }))}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="student">Student</SelectItem>
+                  <SelectItem value="admin">Admin</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
 
             <div className="space-y-2">
@@ -606,7 +725,7 @@ export default function StudentManagement() {
               </Button>
               <Button onClick={handleCreateStudent} className="bg-gradient-primary">
                 <Save className="w-4 h-4 mr-2" />
-                Add Student
+                Add User
               </Button>
             </div>
           </div>
@@ -623,12 +742,12 @@ export default function StudentManagement() {
                   <Avatar className="w-10 h-10">
                     <AvatarImage src={selectedStudent.avatar || ''} />
                     <AvatarFallback className="bg-gradient-primary text-primary-foreground">
-                      {selectedStudent.name.split(' ').map((n: string) => n[0]).join('')}
+                      {(selectedStudent.name || 'U').split(' ').map((n: string) => n[0]).join('')}
                     </AvatarFallback>
                   </Avatar>
                   <div>
-                    <h3 className="text-xl font-bold">{selectedStudent.name}</h3>
-                    <p className="text-sm text-muted-foreground">{selectedStudent.email}</p>
+                    <h3 className="text-xl font-bold">{selectedStudent.name || 'Unknown User'}</h3>
+                    <p className="text-sm text-muted-foreground">{selectedStudent.email || 'no-email@example.com'}</p>
                   </div>
                 </DialogTitle>
               </DialogHeader>

@@ -2,17 +2,9 @@ import { initializeApp } from 'firebase/app';
 import { getAuth, GoogleAuthProvider } from 'firebase/auth';
 import { getFirestore } from 'firebase/firestore';
 import { getStorage } from 'firebase/storage';
+import { getFirebaseConfig } from './firebase-config';
 
-const firebaseConfig = {
-  apiKey: "AIzaSyD4orKO0KCyFWAkYMnZ1FjdCCnXcGbUb6Q",
-  authDomain: "aptitude-platform.firebaseapp.com",
-  databaseURL: "https://aptitude-platform-default-rtdb.asia-southeast1.firebasedatabase.app",
-  projectId: "aptitude-platform",
-  storageBucket: "aptitude-platform.firebasestorage.app",
-  messagingSenderId: "734316195731",
-  appId: "1:734316195731:web:0c4d579ba057cb5df68266",
-  measurementId: "G-XSTZW7KJ6R"
-};
+const firebaseConfig = getFirebaseConfig();
 
 // Initialize Firebase
 const app = initializeApp(firebaseConfig);

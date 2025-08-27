@@ -297,7 +297,7 @@ export default function Login() {
           </form>
 
           {/* Sign Up Link */}
-          <div className="mt-6 text-center">
+          <div className="mt-6 text-center space-y-2">
             <p className="text-sm text-muted-foreground">
               Don't have an account?{' '}
               <Link
@@ -305,6 +305,15 @@ export default function Login() {
                 className="text-primary hover:text-primary-glow font-medium transition-colors"
               >
                 Sign up here
+              </Link>
+            </p>
+            <p className="text-xs text-muted-foreground">
+              Need to create an admin account?{' '}
+              <Link
+                to="/setup-admin"
+                className="text-secondary hover:text-secondary-glow font-medium transition-colors"
+              >
+                Setup Admin
               </Link>
             </p>
           </div>

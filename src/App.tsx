@@ -6,7 +6,12 @@ import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider, useAuth } from "./contexts/AuthContext";
 import { ProtectedRoute } from "./components/ProtectedRoute";
 import { DashboardLayout } from "./components/layout/DashboardLayout";
+import { ErrorBoundary } from "./components/ErrorBoundary";
+import { FirebaseTest } from "./components/FirebaseTest";
+import { FirebaseConfigDisplay } from "./components/FirebaseConfigDisplay";
+import { ProjectSwitcher } from "./components/ProjectSwitcher";
 import LandingPage from "./pages/LandingPage";
+import FirebaseDebug from "./pages/FirebaseDebug";
 import Login from "./pages/Login";
 import Signup from "./pages/Signup";
 import StudentDashboard from "./pages/student/StudentDashboard";
@@ -23,6 +28,7 @@ import QuestionBank from "./pages/admin/QuestionBank";
 import Analytics from "./pages/admin/Analytics";
 import ActivityLogs from "./pages/admin/ActivityLogs";
 import NotFound from "./pages/NotFound";
+import QuickAdminSetup from "./pages/QuickAdminSetup";
 
 const queryClient = new QueryClient();
 
@@ -50,13 +56,19 @@ function AuthRoutes() {
     }
   }
 
-  // If user is authenticated but no userData yet, show loading
+  // If user is authenticated but no userData yet, show loading with bypass
   if (currentUser && !userData) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
         <div className="text-center">
           <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
           <p className="text-muted-foreground">Setting up your account...</p>
+          <button 
+            onClick={() => window.location.href = '/admin'} 
+            className="mt-4 px-4 py-2 bg-primary text-primary-foreground rounded hover:bg-primary/90"
+          >
+            Skip Loading (Go to Admin)
+          </button>
         </div>
       </div>
     );
@@ -76,6 +88,9 @@ const App = () => (
             <Route path="/" element={<AuthRoutes />} />
             <Route path="/login" element={<Login />} />
             <Route path="/signup" element={<Signup />} />
+            <Route path="/debug" element={<FirebaseDebug />} />
+            <Route path="/test-admin" element={<Navigate to="/admin" replace />} />
+            <Route path="/setup-admin" element={<QuickAdminSetup />} />
 
             <Route
               path="/student/*"
@@ -103,7 +118,11 @@ const App = () => (
                   <DashboardLayout userType="admin">
                     <Routes>
                       <Route index element={<AdminDashboard />} />
-                      <Route path="students" element={<StudentManagement />} />
+                      <Route path="students" element={
+                        <ErrorBoundary>
+                          <StudentManagement />
+                        </ErrorBoundary>
+                      } />
                       <Route path="tests" element={<TestManagement />} />
                       <Route path="questions" element={<QuestionBank />} />
                       <Route path="analytics" element={<Analytics />} />

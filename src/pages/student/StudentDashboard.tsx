@@ -130,12 +130,12 @@ export default function StudentDashboard() {
         transition={{ duration: 0.5 }}
         className="text-center py-8"
       >
-        <h1 className="text-4xl font-bold gradient-text mb-4">Welcome Back, Student!</h1>
-        <p className="text-muted-foreground text-lg">Ready to challenge your mind today?</p>
+        <h1 className="text-2xl md:text-4xl font-bold gradient-text mb-4">Welcome Back, Student!</h1>
+        <p className="text-muted-foreground text-base md:text-lg">Ready to challenge your mind today?</p>
       </motion.div>
 
       {/* KPI Cards Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
         {kpiCards.map((card, index) => (
           <AnimatedCard key={card.title} delay={index * 0.1} glow>
             <div className="flex items-start justify-between">
@@ -157,7 +157,7 @@ export default function StudentDashboard() {
       </div>
 
       {/* Main Content Grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 md:gap-8">
         {/* Recent Activity */}
         <AnimatedCard delay={0.5} className="h-fit">
           <div className="flex items-center justify-between mb-6">

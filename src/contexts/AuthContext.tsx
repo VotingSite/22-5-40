@@ -8,7 +8,7 @@ import {
   onAuthStateChanged,
   updateProfile
 } from 'firebase/auth';
-import { doc, setDoc, getDoc } from 'firebase/firestore';
+import { doc, setDoc, getDoc, Timestamp } from 'firebase/firestore';
 import { auth, googleProvider, db } from '@/lib/firebase';
 
 interface UserData {
@@ -39,6 +39,23 @@ export function useAuth() {
     throw new Error('useAuth must be used within an AuthProvider');
   }
   return context;
+}
+
+// Helper function to convert Firestore Timestamps to Dates
+function convertUserData(data: any): UserData {
+  if (!data) return data;
+  
+  // Convert createdAt if it's a Timestamp
+  if (data.createdAt && data.createdAt instanceof Timestamp) {
+    data.createdAt = data.createdAt.toDate();
+  }
+  
+  // Convert lastLogin if it's a Timestamp
+  if (data.lastLogin && data.lastLogin instanceof Timestamp) {
+    data.lastLogin = data.lastLogin.toDate();
+  }
+  
+  return data as UserData;
 }
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
@@ -137,17 +154,31 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }
 
   useEffect(() => {
+    // Add a timeout to prevent infinite loading
+    const timeoutId = setTimeout(() => {
+      console.warn('Authentication timeout - forcing loading to false');
+      setLoading(false);
+    }, 10000); // 10 second timeout
+
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       try {
+        clearTimeout(timeoutId); // Clear timeout if auth resolves
+        console.log('Auth state changed:', user);
+        
         if (user) {
           // Get user data from Firestore
           const userDocRef = doc(db, 'users', user.uid);
           const userDoc = await getDoc(userDocRef);
+          console.log('User document fetched:', userDoc.exists(), userDoc.data());
 
           if (userDoc.exists()) {
-            const data = userDoc.data() as UserData;
-            setUserData(data);
+            const data = userDoc.data();
+            console.log('Raw user data from Firestore:', data);
+            const convertedData = convertUserData(data);
+            console.log('Converted user data:', convertedData);
+            setUserData(convertedData);
           } else {
+            console.log('No user document found');
             setUserData(null);
           }
         } else {
@@ -162,7 +193,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
     });
 
-    return unsubscribe;
+    return () => {
+      clearTimeout(timeoutId);
+      unsubscribe();
+    };
   }, []);
 
   const value = {
@@ -177,7 +211,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   return (
     <AuthContext.Provider value={value}>
-      {!loading && children}
+      {children}
     </AuthContext.Provider>
   );
 }

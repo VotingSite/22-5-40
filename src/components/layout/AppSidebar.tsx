@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { NavLink, useLocation } from "react-router-dom";
 import { motion, AnimatePresence, Variants } from "framer-motion";
 import {
@@ -19,6 +19,7 @@ import {
   Trophy,
   Folder
 } from "lucide-react";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 import {
   Sidebar,
@@ -43,7 +44,7 @@ const studentItems = [
 
 const adminItems = [
   { title: "Overview", url: "/admin", icon: BarChart3, gradient: "from-primary to-secondary" },
-  { title: "Students", url: "/admin/students", icon: Users, gradient: "from-secondary to-accent" },
+  { title: "User Management", url: "/admin/students", icon: Users, gradient: "from-secondary to-accent" },
   { title: "Test Management", url: "/admin/tests", icon: FileText, gradient: "from-accent to-primary" },
   { title: "Question Bank", url: "/admin/questions", icon: Database, gradient: "from-primary to-accent" },
   { title: "Analytics", url: "/admin/analytics", icon: TrendingUp, gradient: "from-secondary to-primary" },
@@ -55,7 +56,9 @@ interface AppSidebarProps {
 }
 
 export function AppSidebar({ userType }: AppSidebarProps) {
+  const isMobile = useIsMobile();
   const [collapsed, setCollapsed] = useState(false);
+  const [mobileOpen, setMobileOpen] = useState(false);
   const location = useLocation();
   const [hoveredItem, setHoveredItem] = useState<string | null>(null);
   
@@ -69,8 +72,14 @@ export function AppSidebar({ userType }: AppSidebarProps) {
   };
 
   const sidebarVariants: Variants = {
-    expanded: { width: 280, transition: { duration: 0.3, ease: "easeInOut" } },
-    collapsed: { width: 80, transition: { duration: 0.3, ease: "easeInOut" } }
+    expanded: {
+      width: 280,
+      transition: { duration: 0.3, ease: "easeInOut" }
+    },
+    collapsed: {
+      width: 80,
+      transition: { duration: 0.3, ease: "easeInOut" }
+    },
   };
 
   const menuItemVariants: Variants = {
@@ -87,13 +96,54 @@ export function AppSidebar({ userType }: AppSidebarProps) {
   };
 
   return (
-    <motion.div
-      variants={sidebarVariants}
-      animate={collapsed ? "collapsed" : "expanded"}
-      className="relative"
-    >
-      <Sidebar className="glass-card border-r border-glass-border h-full">
-        {/* Header */}
+    <>
+      {/* Mobile overlay */}
+      {mobileOpen && (
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          className="fixed inset-0 bg-black/50 z-40 md:hidden"
+          onClick={() => setMobileOpen(false)}
+        />
+      )}
+
+      <AnimatePresence>
+        {isMobile ? (
+          mobileOpen && (
+            <motion.div
+              key="mobile-sidebar"
+              initial={{ x: "-100%" }}
+              animate={{ x: 0 }}
+              exit={{ x: "-100%" }}
+              transition={{ duration: 0.3, ease: "easeInOut" }}
+              className="fixed inset-y-0 left-0 z-50 w-72"
+            >
+              <Sidebar className="glass-card border-r border-glass-border h-full">
+                {renderSidebarContent()}
+              </Sidebar>
+            </motion.div>
+          )
+        ) : (
+          <motion.div
+            key="desktop-sidebar"
+            variants={sidebarVariants}
+            initial={false}
+            animate={collapsed ? "collapsed" : "expanded"}
+            className="relative z-10"
+          >
+            <Sidebar className="glass-card border-r border-glass-border h-full">
+              {renderSidebarContent()}
+            </Sidebar>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </>
+  );
+
+  function renderSidebarContent() {
+    return (
+      <>
         <div className="p-6 border-b border-glass-border">
           <div className="flex items-center justify-between">
             <AnimatePresence mode="wait">
@@ -119,7 +169,7 @@ export function AppSidebar({ userType }: AppSidebarProps) {
             <motion.button
               whileHover={{ scale: 1.1 }}
               whileTap={{ scale: 0.9 }}
-              onClick={() => setCollapsed(!collapsed)}
+              onClick={() => isMobile ? setMobileOpen(!mobileOpen) : setCollapsed(!collapsed)}
               className="w-8 h-8 rounded-lg glass-card flex items-center justify-center hover:primary-glow transition-all duration-300"
             >
               <motion.div
@@ -254,7 +304,7 @@ export function AppSidebar({ userType }: AppSidebarProps) {
             )}
           </AnimatePresence>
         </div>
-      </Sidebar>
-    </motion.div>
-  );
+      </>
+    );
+  }
 }

@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { 
+import { Timestamp, collection, query, where, getDocs } from 'firebase/firestore';
+import { db } from '@/lib/firebase';
+import {
   User, 
   Mail, 
   Lock, 
@@ -62,7 +64,7 @@ interface UserProfile {
   email: string;
   bio: string;
   avatar: string;
-  joinedDate: Date;
+  joinedDate: Date | string | Timestamp; // allow all
   timezone: string;
   language: string;
   theme: 'light' | 'dark' | 'auto';
@@ -96,27 +98,155 @@ interface AccountStats {
   streakDays: number;
 }
 
+
+
+// --- date helper: converts Firestore Timestamp | string | Date -> Date string
+function formatDate(value: any): string {
+  if (!value) return "N/A";
+
+  // Firestore Timestamp (has .toDate)
+  if (value && typeof value === "object" && typeof value.toDate === "function") {
+    try { return value.toDate().toLocaleDateString(); } catch {}
+  }
+
+  // Unix seconds (common if you saved seconds)
+  if (value && typeof value === "object" && typeof value.seconds === "number") {
+    try { return new Date(value.seconds * 1000).toLocaleDateString(); } catch {}
+  }
+
+  // String / number / Date
+  try { return new Date(value).toLocaleDateString(); } catch {}
+
+  return "N/A";
+}
 export default function Profile() {
   const { userData, logout } = useAuth();
   const { toast } = useToast();
+  
+  // Debug logging
+  console.log('Profile component rendering');
+  console.log('userData:', userData);
+  
+  // Check if component is rendering
+  console.log('Profile component reached render section');
+  
+  // Add error boundary check
+  if (typeof userData === 'undefined') {
+    console.log('userData is undefined');
+  }
+  
+  // Component logic
   
   const [isEditing, setIsEditing] = useState(false);
   const [showPasswordDialog, setShowPasswordDialog] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [accountStats, setAccountStats] = useState<AccountStats>({
+    testsCompleted: 0,
+    totalStudyTime: 0,
+    averageScore: 0,
+    rank: 0,
+    achievements: 0,
+    streakDays: 0
+  });
 
   const [profile, setProfile] = useState<UserProfile>({
-    displayName: userData?.displayName || 'Student User',
-    email: userData?.email || 'student@test.com',
-    bio: 'Passionate learner focused on improving analytical and reasoning skills through consistent practice.',
-    avatar: userData?.photoURL || '',
-    joinedDate: userData?.createdAt || new Date(),
+    displayName: '',
+    email: '',
+    bio: '',
+    avatar: '',
+    joinedDate: new Date(),
     timezone: 'UTC-5 (Eastern)',
     language: 'English',
     theme: 'auto',
     studyGoal: 180, // 3 hours per week
     preferredDifficulty: 'Adaptive'
   });
+  console.log('Initial profile state with empty values');
+
+  // Update profile state when userData changes
+  useEffect(() => {
+    console.log('userData changed:', userData);
+    if (userData) {
+      console.log('Setting profile with userData:', userData);
+      setProfile({
+        displayName: userData.displayName || 'Student User',
+        email: userData.email || 'student@test.com',
+        bio: 'Passionate learner focused on improving analytical and reasoning skills through consistent practice.',
+        avatar: userData.photoURL || '',
+        joinedDate: userData.createdAt || new Date(),
+        timezone: 'UTC-5 (Eastern)',
+        language: 'English',
+        theme: 'auto',
+        studyGoal: 180, // 3 hours per week
+        preferredDifficulty: 'Adaptive'
+      });
+    } else {
+      console.log('userData is null or undefined');
+    }
+  }, [userData]);
+  
+  // Fetch account statistics from Firestore
+  useEffect(() => {
+    const fetchAccountStats = async () => {
+      console.log('Fetching account stats for userData:', userData);
+      if (!userData) return;
+      
+      try {
+        // Fetch test attempts for this user
+        const attemptsQuery = query(
+          collection(db, 'testAttempts'),
+          where('userId', '==', userData.uid)
+        );
+        const attemptsSnapshot = await getDocs(attemptsQuery);
+        const attempts: any[] = attemptsSnapshot.docs.map(doc => ({
+          id: doc.id,
+          ...doc.data(),
+          completedAt: doc.data().completedAt?.toDate()
+        }));
+        
+        // Calculate stats
+        const completedTests = attempts.filter(a => a.status === 'completed').length;
+        const averageScore = attempts.length > 0
+          ? attempts.reduce((sum, a) => sum + (a.score || 0), 0) / attempts.length
+          : 0;
+        const totalTimeSpent = attempts.reduce((sum, a) => sum + (a.timeSpent || 0), 0);
+        
+        // For now, we'll use placeholder values for rank and achievements
+        // In a real application, these would be fetched from Firestore or calculated
+        const rank = 1247;
+        const achievements = 8;
+        const streakDays = 5;
+        
+        setAccountStats({
+          testsCompleted: completedTests,
+          totalStudyTime: totalTimeSpent,
+          averageScore: Math.round(averageScore * 10) / 10,
+          rank,
+          achievements,
+          streakDays
+        });
+        console.log('Set accountStats:', {
+          testsCompleted: completedTests,
+          totalStudyTime: totalTimeSpent,
+          averageScore: Math.round(averageScore * 10) / 10,
+          rank,
+          achievements,
+          streakDays
+        });
+      } catch (error) {
+        console.error('Error fetching account stats:', error);
+      }
+    };
+    
+    fetchAccountStats();
+  }, [userData]);
+  
+  // Log accountStats whenever they change
+  useEffect(() => {
+    console.log('accountStats updated:', accountStats);
+  }, [accountStats]);
+  
 
   const [notifications, setNotifications] = useState<NotificationSettings>({
     emailNotifications: true,
@@ -144,14 +274,6 @@ export default function Profile() {
     showConfirmPassword: false
   });
 
-  const accountStats: AccountStats = {
-    testsCompleted: 24,
-    totalStudyTime: 1860, // 31 hours
-    averageScore: 82,
-    rank: 1247,
-    achievements: 8,
-    streakDays: 5
-  };
 
   const handleSaveProfile = async () => {
     setLoading(true);
@@ -280,7 +402,7 @@ export default function Profile() {
                 <h2 className="text-2xl font-bold text-foreground">{profile.displayName}</h2>
                 <p className="text-muted-foreground">{profile.email}</p>
                 <p className="text-sm text-muted-foreground mt-1">
-                  Member since {profile.joinedDate.toLocaleDateString()}
+                  Member since {formatDate(profile.joinedDate)}
                 </p>
               </div>
               <Button
