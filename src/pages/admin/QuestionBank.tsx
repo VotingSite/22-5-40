@@ -606,6 +606,42 @@ export default function QuestionBank() {
             </div>
           </AnimatedCard>
 
+          {/* Bulk Actions Bar */}
+          {bulkSelectedQuestions.length > 0 && (
+            <AnimatedCard delay={0.55} className="bg-primary/10 border-primary/20">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center space-x-4">
+                  <Badge variant="outline" className="bg-primary/20 text-primary border-primary/30">
+                    {bulkSelectedQuestions.length} selected
+                  </Badge>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setBulkSelectedQuestions([])}
+                  >
+                    <X className="w-4 h-4 mr-2" />
+                    Clear Selection
+                  </Button>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <Button
+                    variant="destructive"
+                    size="sm"
+                    onClick={handleBulkDeleteQuestions}
+                    disabled={loading}
+                  >
+                    {loading ? (
+                      <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2" />
+                    ) : (
+                      <Trash2 className="w-4 h-4 mr-2" />
+                    )}
+                    Delete {bulkSelectedQuestions.length} Questions
+                  </Button>
+                </div>
+              </div>
+            </AnimatedCard>
+          )}
+
           {/* Questions Table */}
           <AnimatedCard delay={0.6}>
             {loading ? (
