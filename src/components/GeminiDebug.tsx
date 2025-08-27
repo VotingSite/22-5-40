@@ -36,14 +36,12 @@ export function GeminiDebug() {
   const isConfigured = isGeminiConfigured();
 
   return (
-    <Card className="w-full max-w-md">
-      <CardHeader>
-        <CardTitle className="flex items-center space-x-2">
+    <AnimatedCard className="w-full max-w-md p-6">
+      <div className="space-y-4">
+        <h3 className="flex items-center space-x-2 text-lg font-semibold">
           <Wand2 className="w-5 h-5" />
           <span>Gemini AI Debug</span>
-        </CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-4">
+        </h3>
         <div className="space-y-2">
           <div className="flex items-center justify-between">
             <span className="text-sm font-medium">API Key Status:</span>
@@ -97,7 +95,7 @@ export function GeminiDebug() {
             </div>
           </div>
         )}
-      </CardContent>
-    </Card>
+      </div>
+    </AnimatedCard>
   );
 }
