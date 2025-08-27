@@ -56,6 +56,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
 import { collection, addDoc, getDocs, doc, updateDoc, deleteDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
+import { generateQuestionsWithAI, isGeminiConfigured } from '@/lib/gemini';
 
 interface Question {
   id: string;
@@ -333,42 +334,65 @@ export default function QuestionBank() {
   const handleAIGeneration = async () => {
     try {
       setAiLoading(true);
-      
-      // For demo purposes, create mock questions
-      const mockQuestions = Array.from({ length: aiFormData.count }, (_, i) => ({
-        question: `${aiFormData.topic} - Generated Question ${i + 1}: What is the most important concept in ${aiFormData.topic}?`,
-        type: aiFormData.type,
-        options: aiFormData.type.includes('mcq') ? [
-          `Option A for ${aiFormData.topic}`,
-          `Option B for ${aiFormData.topic}`,
-          `Option C for ${aiFormData.topic}`,
-          `Option D for ${aiFormData.topic}`
-        ] : undefined,
-        correctAnswer: aiFormData.type === 'true-false' ? true : 0,
-        explanation: `This question tests understanding of ${aiFormData.topic} concepts.`,
+
+      if (!isGeminiConfigured()) {
+        toast({
+          title: "Error",
+          description: "Gemini API is not configured. Please check your API key.",
+          variant: "destructive"
+        });
+        return;
+      }
+
+      if (!aiFormData.topic.trim()) {
+        toast({
+          title: "Error",
+          description: "Please enter a topic for question generation",
+          variant: "destructive"
+        });
+        return;
+      }
+
+      // Generate questions using Gemini AI
+      const aiQuestions = await generateQuestionsWithAI({
+        topic: aiFormData.topic,
         category: aiFormData.category,
         difficulty: aiFormData.difficulty,
-        tags: [aiFormData.topic.toLowerCase(), 'ai-generated'],
-        createdAt: new Date(),
-        createdBy: 'AI Assistant'
-      }));
+        count: aiFormData.count,
+        type: aiFormData.type
+      });
 
       // Add all generated questions to Firestore
-      for (const question of mockQuestions) {
-        await addDoc(collection(db, 'questions'), question);
+      const addedQuestions = [];
+      for (const aiQuestion of aiQuestions) {
+        const questionData = {
+          ...aiQuestion,
+          createdAt: new Date(),
+          createdBy: 'AI Assistant (Gemini)'
+        };
+        const docRef = await addDoc(collection(db, 'questions'), questionData);
+        addedQuestions.push({ id: docRef.id, ...questionData });
       }
 
       toast({
         title: "Success",
-        description: `${aiFormData.count} questions generated successfully!`
+        description: `${aiQuestions.length} AI-generated questions created successfully!`,
       });
 
       setShowAIDialog(false);
+      setAiFormData({
+        topic: '',
+        category: 'Logic',
+        difficulty: 'Medium',
+        count: 5,
+        type: 'mcq-single'
+      });
       fetchQuestions();
-    } catch (error) {
+    } catch (error: any) {
+      console.error('AI Generation Error:', error);
       toast({
         title: "Error",
-        description: "Failed to generate questions with AI",
+        description: error.message || "Failed to generate questions with AI",
         variant: "destructive"
       });
     } finally {
@@ -511,9 +535,14 @@ export default function QuestionBank() {
               </div>
               
               <div className="flex items-center space-x-2">
-                <Button variant="outline" onClick={() => setShowAIDialog(true)}>
+                <Button
+                  variant="outline"
+                  onClick={() => setShowAIDialog(true)}
+                  disabled={!isGeminiConfigured()}
+                  title={!isGeminiConfigured() ? "Gemini API not configured" : "Generate questions with AI"}
+                >
                   <Wand2 className="w-4 h-4 mr-2" />
-                  AI Generate
+                  AI Generate {!isGeminiConfigured() && '(⚠️)'}
                 </Button>
                 <Button className="bg-gradient-primary" onClick={() => setShowCreateQuestionDialog(true)}>
                   <Plus className="w-4 h-4 mr-2" />
