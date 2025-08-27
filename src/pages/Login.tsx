@@ -27,8 +27,14 @@ export default function Login() {
       } else if (userData.role === 'admin') {
         navigate('/admin', { replace: true });
       }
+    } else if (currentUser && !userData && !loading) {
+      // Fallback: if user is authenticated but userData failed to load, redirect to admin
+      console.log('User authenticated but userData not loaded - redirecting to admin dashboard');
+      setTimeout(() => {
+        navigate('/admin', { replace: true });
+      }, 2000); // Give it 2 seconds for userData to potentially load
     }
-  }, [currentUser, userData, navigate]);
+  }, [currentUser, userData, loading, navigate]);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -49,7 +55,14 @@ export default function Login() {
         title: "Success",
         description: "Logged in successfully!",
       });
-      // Let AuthRoutes handle the redirect automatically
+
+      // Add a fallback redirect in case the automatic redirect fails
+      setTimeout(() => {
+        if (window.location.pathname === '/login') {
+          console.log('Fallback redirect triggered');
+          navigate('/admin', { replace: true });
+        }
+      }, 3000); // Wait 3 seconds for normal redirect, then fallback
     } catch (error: any) {
       let errorMessage = "Failed to log in";
 
