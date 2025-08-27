@@ -1,73 +1,109 @@
-# Welcome to your Lovable project
+# Aptitude Test X
 
-## Project info
+Advanced Aptitude Testing Platform with AI-powered question generation, real-time analytics, and gamified learning experiences.
 
-**URL**: https://lovable.dev/projects/b4716ac1-2b37-4899-b08e-cf9e2a08c473
+## 🚀 Features
 
-## How can I edit this code?
+- **AI-Powered Question Generation** - Generate high-quality questions using Google Gemini AI
+- **Real-time Analytics** - Track student performance and progress
+- **Question Bank Management** - Organize questions into categorized banks
+- **Bulk Operations** - Select and manage multiple questions efficiently
+- **Admin & Student Dashboards** - Role-based interfaces for different user types
+- **Firebase Integration** - Secure authentication and data storage
+- **Responsive Design** - Works seamlessly on all devices
 
-There are several ways of editing your application.
+## 🛠️ Tech Stack
 
-**Use Lovable**
+- **Frontend**: React 18, TypeScript, Tailwind CSS
+- **Backend**: Firebase (Auth, Firestore, Hosting)
+- **AI**: Google Gemini API
+- **UI Components**: Radix UI, Lucide Icons, Framer Motion
+- **Build Tool**: Vite
 
-Simply visit the [Lovable Project](https://lovable.dev/projects/b4716ac1-2b37-4899-b08e-cf9e2a08c473) and start prompting.
+## 📦 Installation
 
-Changes made via Lovable will be committed automatically to this repo.
+1. **Clone the repository**
+   ```bash
+   git clone <your-repo-url>
+   cd aptitude-test-x
+   ```
 
-**Use your preferred IDE**
+2. **Install dependencies**
+   ```bash
+   npm install
+   ```
 
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
+3. **Set up environment variables**
+   Create a `.env` file with:
+   ```env
+   VITE_GEMINI_API_KEY=your_gemini_api_key_here
+   ```
 
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
+4. **Configure Firebase**
+   - Update `src/lib/firebase-config.ts` with your Firebase project configuration
+   - Ensure Firebase Authentication and Firestore are enabled
 
-Follow these steps:
+5. **Start development server**
+   ```bash
+   npm run dev
+   ```
 
-```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
+## 🚀 Deployment
 
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
+### Firebase Hosting
 
-# Step 3: Install the necessary dependencies.
-npm i
+1. **Build the project**
+   ```bash
+   npm run build
+   ```
 
-# Step 4: Start the development server with auto-reloading and an instant preview.
-npm run dev
-```
+2. **Deploy to Firebase**
+   ```bash
+   firebase deploy
+   ```
 
-**Edit a file directly in GitHub**
+### Environment Variables for Production
 
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
+Set the following environment variables in your hosting platform:
+- `VITE_GEMINI_API_KEY`: Your Google Gemini API key
 
-**Use GitHub Codespaces**
+## 📋 Usage
 
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
+### Admin Features
+- Create and manage questions
+- Generate questions with AI
+- Organize questions into banks
+- Bulk delete operations
+- Monitor student activity
+- View analytics and reports
 
-## What technologies are used for this project?
+### Student Features
+- Take adaptive tests
+- View progress and results
+- Access gamified learning modules
+- Track performance over time
 
-This project is built with:
+## 🔧 Configuration
 
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
+### Firebase Setup
+1. Create a Firebase project
+2. Enable Authentication (Email/Password, Google)
+3. Enable Firestore Database
+4. Update the configuration in `src/lib/firebase-config.ts`
 
-## How can I deploy this project?
+### Gemini AI Setup
+1. Get an API key from Google AI Studio
+2. Set it as `VITE_GEMINI_API_KEY` environment variable
+3. The AI question generation will be available in the Question Bank
 
-Simply open [Lovable](https://lovable.dev/projects/b4716ac1-2b37-4899-b08e-cf9e2a08c473) and click on Share -> Publish.
+## 📄 License
 
-## Can I connect a custom domain to my Lovable project?
+This project is proprietary software. All rights reserved.
 
-Yes, you can!
+## 🤝 Contributing
 
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
+This is a private project. Contact the development team for contribution guidelines.
 
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/tips-tricks/custom-domain#step-by-step-guide)
+## 📞 Support
+
+For support or questions, please contact the development team.
