@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { AnimatedCard } from '@/components/ui/AnimatedCard';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { isGeminiConfigured } from '@/lib/gemini';
 import { Wand2, CheckCircle, XCircle, AlertTriangle } from 'lucide-react';
@@ -36,12 +36,14 @@ export function GeminiDebug() {
   const isConfigured = isGeminiConfigured();
 
   return (
-    <AnimatedCard className="w-full max-w-md p-6">
-      <div className="space-y-4">
-        <h3 className="flex items-center space-x-2 text-lg font-semibold">
+    <Card className="w-full max-w-md glass-card border-glass-border">
+      <CardHeader>
+        <CardTitle className="flex items-center space-x-2 text-lg">
           <Wand2 className="w-5 h-5" />
           <span>Gemini AI Debug</span>
-        </h3>
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-4">
         <div className="space-y-2">
           <div className="flex items-center justify-between">
             <span className="text-sm font-medium">API Key Status:</span>
@@ -95,7 +97,7 @@ export function GeminiDebug() {
             </div>
           </div>
         )}
-      </div>
-    </AnimatedCard>
+      </CardContent>
+    </Card>
   );
 }
