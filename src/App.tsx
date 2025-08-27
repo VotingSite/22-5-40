@@ -2,7 +2,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from "react-router-dom";
 import { AuthProvider, useAuth } from "./contexts/AuthContext";
 import { ProtectedRoute } from "./components/ProtectedRoute";
 import { DashboardLayout } from "./components/layout/DashboardLayout";
@@ -34,6 +34,7 @@ const queryClient = new QueryClient();
 
 function AuthRoutes() {
   const { currentUser, userData, loading } = useAuth();
+  const location = useLocation();
 
   // Show loading state while authentication is being determined
   if (loading) {
@@ -49,7 +50,7 @@ function AuthRoutes() {
 
   // Only redirect if user is authenticated and we're on the root path
   // This prevents interference with users already on protected routes
-  if (currentUser && userData && window.location.pathname === '/') {
+  if (currentUser && userData && location.pathname === '/') {
     if (userData.role === 'student') {
       return <Navigate to="/student" replace />;
     } else if (userData.role === 'admin') {
@@ -58,7 +59,7 @@ function AuthRoutes() {
   }
 
   // If user is authenticated but no userData yet, and we're on root path
-  if (currentUser && !userData && window.location.pathname === '/') {
+  if (currentUser && !userData && location.pathname === '/') {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
         <div className="text-center">
