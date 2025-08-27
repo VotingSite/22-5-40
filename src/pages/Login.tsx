@@ -19,13 +19,22 @@ export default function Login() {
   const { toast } = useToast();
   const navigate = useNavigate();
 
-  // Redirect authenticated users to their dashboard
+  // Redirect authenticated users to their dashboard (only if they came to login page directly)
   useEffect(() => {
     if (currentUser && userData) {
-      if (userData.role === 'student') {
-        navigate('/student', { replace: true });
-      } else if (userData.role === 'admin') {
-        navigate('/admin', { replace: true });
+      // Check if user came from a protected route
+      const previousPath = sessionStorage.getItem('previousPath');
+      if (previousPath && (previousPath.startsWith('/admin') || previousPath.startsWith('/student'))) {
+        // Redirect back to where they were
+        navigate(previousPath, { replace: true });
+        sessionStorage.removeItem('previousPath');
+      } else {
+        // Default redirect based on role
+        if (userData.role === 'student') {
+          navigate('/student', { replace: true });
+        } else if (userData.role === 'admin') {
+          navigate('/admin', { replace: true });
+        }
       }
     }
   }, [currentUser, userData, navigate]);
@@ -49,7 +58,8 @@ export default function Login() {
         title: "Success",
         description: "Logged in successfully!",
       });
-      // Let AuthRoutes handle the redirect automatically
+
+      // Login successful - redirect will be handled by useEffect
     } catch (error: any) {
       let errorMessage = "Failed to log in";
 

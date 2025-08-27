@@ -2,7 +2,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from "react-router-dom";
 import { AuthProvider, useAuth } from "./contexts/AuthContext";
 import { ProtectedRoute } from "./components/ProtectedRoute";
 import { DashboardLayout } from "./components/layout/DashboardLayout";
@@ -34,6 +34,7 @@ const queryClient = new QueryClient();
 
 function AuthRoutes() {
   const { currentUser, userData, loading } = useAuth();
+  const location = useLocation();
 
   // Show loading state while authentication is being determined
   if (loading) {
@@ -47,8 +48,9 @@ function AuthRoutes() {
     );
   }
 
-  // If user is authenticated and we have their data, redirect to dashboard
-  if (currentUser && userData) {
+  // Only redirect if user is authenticated and we're on the root path
+  // This prevents interference with users already on protected routes
+  if (currentUser && userData && location.pathname === '/') {
     if (userData.role === 'student') {
       return <Navigate to="/student" replace />;
     } else if (userData.role === 'admin') {
@@ -56,24 +58,25 @@ function AuthRoutes() {
     }
   }
 
-  // If user is authenticated but no userData yet, show loading with bypass
-  if (currentUser && !userData) {
+  // If user is authenticated but no userData yet, and we're on root path
+  if (currentUser && !userData && location.pathname === '/') {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
         <div className="text-center">
           <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
           <p className="text-muted-foreground">Setting up your account...</p>
-          <button 
-            onClick={() => window.location.href = '/admin'} 
+          <button
+            onClick={() => window.location.href = '/admin'}
             className="mt-4 px-4 py-2 bg-primary text-primary-foreground rounded hover:bg-primary/90"
           >
-            Skip Loading (Go to Admin)
+            Go to Admin Dashboard
           </button>
         </div>
       </div>
     );
   }
 
+  // Show landing page for non-authenticated users or if already have data
   return <LandingPage />;
 }
 

@@ -56,6 +56,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
 import { collection, addDoc, getDocs, doc, updateDoc, deleteDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
+import { generateQuestionsWithAI, isGeminiConfigured } from '@/lib/gemini';
+import { GeminiDebug } from '@/components/GeminiDebug';
 
 interface Question {
   id: string;
@@ -108,7 +110,8 @@ export default function QuestionBank() {
   const [showAIDialog, setShowAIDialog] = useState(false);
   const [loading, setLoading] = useState(false);
   const [aiLoading, setAiLoading] = useState(false);
-  const [selectedQuestions, setSelectedQuestions] = useState<string[]>([]);
+  const [selectedQuestions, setSelectedQuestions] = useState<string[]>([]); // For question bank creation
+  const [bulkSelectedQuestions, setBulkSelectedQuestions] = useState<string[]>([]); // For bulk operations
   const { toast } = useToast();
 
   // Form state for creating/editing questions
@@ -313,6 +316,59 @@ export default function QuestionBank() {
     }
   };
 
+  const handleBulkDeleteQuestions = async () => {
+    if (bulkSelectedQuestions.length === 0) {
+      toast({
+        title: "Error",
+        description: "No questions selected for deletion",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    try {
+      setLoading(true);
+      // Delete all selected questions
+      await Promise.all(
+        bulkSelectedQuestions.map(questionId =>
+          deleteDoc(doc(db, 'questions', questionId))
+        )
+      );
+
+      toast({
+        title: "Success",
+        description: `${bulkSelectedQuestions.length} questions deleted successfully`
+      });
+
+      setBulkSelectedQuestions([]);
+      fetchQuestions();
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to delete some questions",
+        variant: "destructive"
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleSelectAllQuestions = () => {
+    if (bulkSelectedQuestions.length === filteredQuestions.length) {
+      setBulkSelectedQuestions([]);
+    } else {
+      setBulkSelectedQuestions(filteredQuestions.map(q => q.id));
+    }
+  };
+
+  const handleSelectQuestion = (questionId: string) => {
+    setBulkSelectedQuestions(prev =>
+      prev.includes(questionId)
+        ? prev.filter(id => id !== questionId)
+        : [...prev, questionId]
+    );
+  };
+
   const handleDeleteQuestionBank = async (bankId: string) => {
     try {
       await deleteDoc(doc(db, 'questionBanks', bankId));
@@ -333,42 +389,65 @@ export default function QuestionBank() {
   const handleAIGeneration = async () => {
     try {
       setAiLoading(true);
-      
-      // For demo purposes, create mock questions
-      const mockQuestions = Array.from({ length: aiFormData.count }, (_, i) => ({
-        question: `${aiFormData.topic} - Generated Question ${i + 1}: What is the most important concept in ${aiFormData.topic}?`,
-        type: aiFormData.type,
-        options: aiFormData.type.includes('mcq') ? [
-          `Option A for ${aiFormData.topic}`,
-          `Option B for ${aiFormData.topic}`,
-          `Option C for ${aiFormData.topic}`,
-          `Option D for ${aiFormData.topic}`
-        ] : undefined,
-        correctAnswer: aiFormData.type === 'true-false' ? true : 0,
-        explanation: `This question tests understanding of ${aiFormData.topic} concepts.`,
+
+      if (!isGeminiConfigured()) {
+        toast({
+          title: "Error",
+          description: "Gemini API is not configured. Please check your API key.",
+          variant: "destructive"
+        });
+        return;
+      }
+
+      if (!aiFormData.topic.trim()) {
+        toast({
+          title: "Error",
+          description: "Please enter a topic for question generation",
+          variant: "destructive"
+        });
+        return;
+      }
+
+      // Generate questions using Gemini AI
+      const aiQuestions = await generateQuestionsWithAI({
+        topic: aiFormData.topic,
         category: aiFormData.category,
         difficulty: aiFormData.difficulty,
-        tags: [aiFormData.topic.toLowerCase(), 'ai-generated'],
-        createdAt: new Date(),
-        createdBy: 'AI Assistant'
-      }));
+        count: aiFormData.count,
+        type: aiFormData.type
+      });
 
       // Add all generated questions to Firestore
-      for (const question of mockQuestions) {
-        await addDoc(collection(db, 'questions'), question);
+      const addedQuestions = [];
+      for (const aiQuestion of aiQuestions) {
+        const questionData = {
+          ...aiQuestion,
+          createdAt: new Date(),
+          createdBy: 'AI Assistant (Gemini)'
+        };
+        const docRef = await addDoc(collection(db, 'questions'), questionData);
+        addedQuestions.push({ id: docRef.id, ...questionData });
       }
 
       toast({
         title: "Success",
-        description: `${aiFormData.count} questions generated successfully!`
+        description: `${aiQuestions.length} AI-generated questions created successfully!`,
       });
 
       setShowAIDialog(false);
+      setAiFormData({
+        topic: '',
+        category: 'Logic',
+        difficulty: 'Medium',
+        count: 5,
+        type: 'mcq-single'
+      });
       fetchQuestions();
-    } catch (error) {
+    } catch (error: any) {
+      console.error('AI Generation Error:', error);
       toast({
         title: "Error",
-        description: "Failed to generate questions with AI",
+        description: error.message || "Failed to generate questions with AI",
         variant: "destructive"
       });
     } finally {
@@ -427,6 +506,11 @@ export default function QuestionBank() {
       >
         <h1 className="text-4xl font-bold gradient-text mb-4">Question Bank</h1>
         <p className="text-muted-foreground text-lg">Create and manage test questions with Question Banks and AI assistance</p>
+
+        {/* Temporary Gemini Debug */}
+        <div className="flex justify-center mt-4">
+          <GeminiDebug />
+        </div>
       </motion.div>
 
       {/* Tabs for Questions and Question Banks */}
@@ -449,7 +533,7 @@ export default function QuestionBank() {
             {[
               { title: "Total Questions", value: questions.length.toString(), change: `${questions.filter(q => q.createdAt > new Date(Date.now() - 7*24*60*60*1000)).length} this week`, icon: Database, gradient: "from-primary to-secondary" },
               { title: "Categories", value: new Set(questions.map(q => q.category)).size.toString(), change: "Active categories", icon: Tag, gradient: "from-secondary to-accent" },
-              { title: "AI Generated", value: questions.filter(q => q.createdBy === 'AI Assistant').length.toString(), change: "Auto-created", icon: Wand2, gradient: "from-accent to-primary" },
+              { title: "AI Generated", value: questions.filter(q => q.createdBy === 'AI Assistant' || q.createdBy === 'AI Assistant (Gemini)').length.toString(), change: "Auto-created", icon: Wand2, gradient: "from-accent to-primary" },
               { title: "Easy Questions", value: questions.filter(q => q.difficulty === 'Easy').length.toString(), change: "Beginner level", icon: BookOpen, gradient: "from-primary to-accent" }
             ].map((stat, index) => (
               <AnimatedCard key={stat.title} delay={index * 0.1} glow>
@@ -511,9 +595,14 @@ export default function QuestionBank() {
               </div>
               
               <div className="flex items-center space-x-2">
-                <Button variant="outline" onClick={() => setShowAIDialog(true)}>
+                <Button
+                  variant="outline"
+                  onClick={() => setShowAIDialog(true)}
+                  disabled={!isGeminiConfigured()}
+                  title={!isGeminiConfigured() ? "Gemini API not configured" : "Generate questions with AI"}
+                >
                   <Wand2 className="w-4 h-4 mr-2" />
-                  AI Generate
+                  AI Generate {!isGeminiConfigured() && '(⚠️)'}
                 </Button>
                 <Button className="bg-gradient-primary" onClick={() => setShowCreateQuestionDialog(true)}>
                   <Plus className="w-4 h-4 mr-2" />
@@ -522,6 +611,42 @@ export default function QuestionBank() {
               </div>
             </div>
           </AnimatedCard>
+
+          {/* Bulk Actions Bar */}
+          {bulkSelectedQuestions.length > 0 && (
+            <AnimatedCard delay={0.55} className="bg-primary/10 border-primary/20">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center space-x-4">
+                  <Badge variant="outline" className="bg-primary/20 text-primary border-primary/30">
+                    {bulkSelectedQuestions.length} selected
+                  </Badge>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setBulkSelectedQuestions([])}
+                  >
+                    <X className="w-4 h-4 mr-2" />
+                    Clear Selection
+                  </Button>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <Button
+                    variant="destructive"
+                    size="sm"
+                    onClick={handleBulkDeleteQuestions}
+                    disabled={loading}
+                  >
+                    {loading ? (
+                      <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2" />
+                    ) : (
+                      <Trash2 className="w-4 h-4 mr-2" />
+                    )}
+                    Delete {bulkSelectedQuestions.length} Questions
+                  </Button>
+                </div>
+              </div>
+            </AnimatedCard>
+          )}
 
           {/* Questions Table */}
           <AnimatedCard delay={0.6}>
@@ -535,6 +660,13 @@ export default function QuestionBank() {
                 <Table>
                   <TableHeader>
                     <TableRow className="border-glass-border">
+                      <TableHead className="w-12">
+                        <Checkbox
+                          checked={bulkSelectedQuestions.length === filteredQuestions.length && filteredQuestions.length > 0}
+                          onCheckedChange={handleSelectAllQuestions}
+                          aria-label="Select all questions"
+                        />
+                      </TableHead>
                       <TableHead>Question</TableHead>
                       <TableHead>Type</TableHead>
                       <TableHead>Category</TableHead>
@@ -553,6 +685,13 @@ export default function QuestionBank() {
                         transition={{ delay: 0.7 + index * 0.05 }}
                         className="border-glass-border hover:bg-background-secondary transition-colors"
                       >
+                        <TableCell>
+                          <Checkbox
+                            checked={bulkSelectedQuestions.includes(question.id)}
+                            onCheckedChange={() => handleSelectQuestion(question.id)}
+                            aria-label={`Select question ${question.id}`}
+                          />
+                        </TableCell>
                         <TableCell>
                           <div className="max-w-md">
                             <p className="font-medium text-foreground truncate">{question.question}</p>
@@ -1152,17 +1291,25 @@ export default function QuestionBank() {
             <DialogTitle className="flex items-center">
               <Wand2 className="w-5 h-5 mr-2 text-primary" />
               AI Question Generator
+              {isGeminiConfigured() && (
+                <Badge variant="outline" className="ml-2 text-xs bg-success/20 text-success">
+                  Gemini AI Ready
+                </Badge>
+              )}
             </DialogTitle>
           </DialogHeader>
 
           <div className="space-y-4 mt-6">
             <div className="space-y-2">
-              <Label>Topic/Subject</Label>
+              <Label>Topic/Subject *</Label>
               <Input
                 value={aiFormData.topic}
                 onChange={(e) => setAiFormData(prev => ({ ...prev, topic: e.target.value }))}
-                placeholder="e.g., logical reasoning, basic math"
+                placeholder="e.g., logical reasoning, basic math, pattern recognition"
               />
+              <p className="text-xs text-muted-foreground">
+                Be specific about the topic for better question quality
+              </p>
             </div>
 
             <div className="grid grid-cols-2 gap-4">
@@ -1231,9 +1378,9 @@ export default function QuestionBank() {
               <Button variant="outline" onClick={() => setShowAIDialog(false)}>
                 Cancel
               </Button>
-              <Button 
-                onClick={handleAIGeneration} 
-                disabled={aiLoading || !aiFormData.topic}
+              <Button
+                onClick={handleAIGeneration}
+                disabled={aiLoading || !aiFormData.topic.trim() || !isGeminiConfigured()}
                 className="bg-gradient-primary"
               >
                 {aiLoading ? (
@@ -1241,8 +1388,13 @@ export default function QuestionBank() {
                 ) : (
                   <Wand2 className="w-4 h-4 mr-2" />
                 )}
-                Generate Questions
+                {aiLoading ? 'Generating...' : 'Generate Questions'}
               </Button>
+              {!isGeminiConfigured() && (
+                <p className="text-xs text-warning mt-2">
+                  ⚠️ Gemini API not configured. Contact admin to set up API key.
+                </p>
+              )}
             </div>
           </div>
         </DialogContent>

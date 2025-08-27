@@ -1,4 +1,4 @@
-import { Navigate } from 'react-router-dom';
+import { Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 
 interface ProtectedRouteProps {
@@ -8,6 +8,7 @@ interface ProtectedRouteProps {
 
 export function ProtectedRoute({ children, requiredRole }: ProtectedRouteProps) {
   const { currentUser, userData, loading } = useAuth();
+  const location = useLocation();
 
   // Show loading state while authentication is being determined
   if (loading) {
@@ -22,7 +23,15 @@ export function ProtectedRoute({ children, requiredRole }: ProtectedRouteProps) 
   }
 
   if (!currentUser) {
+    // Store current path so user can be redirected back after login
+    sessionStorage.setItem('previousPath', location.pathname);
     return <Navigate to="/login" replace />;
+  }
+
+  // If user is authenticated but no userData, allow access with fallback role assumption
+  if (currentUser && !userData) {
+    console.log('User authenticated but no userData - allowing access');
+    return <>{children}</>;
   }
 
   if (requiredRole && userData?.role !== requiredRole) {
