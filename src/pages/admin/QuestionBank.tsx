@@ -57,6 +57,7 @@ import { useToast } from '@/hooks/use-toast';
 import { collection, addDoc, getDocs, doc, updateDoc, deleteDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { generateQuestionsWithAI, isGeminiConfigured } from '@/lib/gemini';
+import { GeminiDebug } from '@/components/GeminiDebug';
 
 interface Question {
   id: string;
@@ -505,6 +506,11 @@ export default function QuestionBank() {
       >
         <h1 className="text-4xl font-bold gradient-text mb-4">Question Bank</h1>
         <p className="text-muted-foreground text-lg">Create and manage test questions with Question Banks and AI assistance</p>
+
+        {/* Temporary Gemini Debug */}
+        <div className="flex justify-center mt-4">
+          <GeminiDebug />
+        </div>
       </motion.div>
 
       {/* Tabs for Questions and Question Banks */}
